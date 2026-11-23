@@ -7,3 +7,13 @@ packages:
 publicHoistPattern:
   - "@types/react"
   - "@types/react-dom"
+
+engineStrict: true
+saveExact: true
+strictPeerDependencies: true
+# pnpm 10 skipped these build scripts without asking; keep them skipped.
+allowBuilds:
+  "@parcel/watcher": false
+  esbuild: false
+  msgpackr-extract: false
+  workerd: false
