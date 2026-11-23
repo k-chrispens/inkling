@@ -49,7 +49,8 @@ test(
     assert.ok(browserExecutable);
     const directory = await mkdtemp(path.join(tmpdir(), "inkling-browser-"));
     const port = await availablePort();
-    const baseUrl = `http://127.0.0.1:${port}`;
+    // The Google mock listens on 127.0.0.1, so "localhost" makes it another site, as Google is.
+    const baseUrl = `http://localhost:${port}`;
     const google = await startGoogleOAuthMock();
     const server = spawn("node", ["../runtime-node/src/main.ts"], {
       cwd: path.resolve(import.meta.dirname, ".."),
@@ -1770,7 +1771,13 @@ async function startGoogleOAuthMock(): Promise<RunningGoogleOAuthMock> {
       const callback = new URL(redirectUri);
       callback.searchParams.set("code", "browser-authorization-code");
       callback.searchParams.set("state", state);
-      response.writeHead(302, { Location: callback.href }).end();
+      // Google's consent page starts the navigation back, so this page does too: a plain
+      // redirect would keep the navigation same-site and hide SameSite=Strict cookie bugs.
+      response
+        .writeHead(200, { "Content-Type": "text/html" })
+        .end(
+          `<meta http-equiv="refresh" content="0;url=${callback.href.replaceAll("&", "&amp;")}">`,
+        );
       return;
     }
     if (url.pathname === "/token") {

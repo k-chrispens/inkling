@@ -4,6 +4,7 @@ import { personId } from "@earendil-works/inkling-core";
 import type { PeopleDirectoryEntry, WorkspaceIdentity } from "@earendil-works/inkling-core";
 
 import type { SessionResult } from "./application.ts";
+import { continuePage } from "./mcp/oauth.ts";
 
 const domainPattern =
   /^(?:[a-z\d](?:[a-z\d-]{0,61}[a-z\d])?\.)+[a-z\d](?:[a-z\d-]{0,61}[a-z\d])?$/u;
@@ -233,7 +234,8 @@ export async function finishGoogleAuthentication(
       })),
     );
     const session = await login(identity, people);
-    const headers = new Headers({ Location: payload.returnTo });
+    const response = continuePage(payload.returnTo);
+    const { headers } = response;
     headers.append(
       "Set-Cookie",
       cookieHeader("inkling_session", session.sessionToken, request, {
@@ -261,7 +263,7 @@ export async function finishGoogleAuthentication(
         sameSite: "Lax",
       }),
     );
-    return new Response(null, { headers, status: 302 });
+    return response;
   } catch {
     return oauthFailure("Google authentication could not be completed.");
   }
