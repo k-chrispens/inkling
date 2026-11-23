@@ -213,6 +213,25 @@ importers:
         specifier: 4.165.0
         version: 4.165.0(@cloudflare/workers-types@5.20261119.1)(@types/node@25.0.3)
 
+  deployments/sampleworks-rfc:
+    dependencies:
+      '@earendil-works/inkling-frontend':
+        specifier: workspace:*
+        version: link:../../packages/frontend
+      '@earendil-works/inkling-runtime-cloudflare':
+        specifier: workspace:*
+        version: link:../../packages/runtime-cloudflare
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: 5.20261119.1
+        version: 5.20261119.1
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      wrangler:
+        specifier: 4.165.0
+        version: 4.165.0(@cloudflare/workers-types@5.20261119.1)(@types/node@25.0.3)
+
   packages/backend:
     dependencies:
       '@earendil-works/inkling-collaboration':
