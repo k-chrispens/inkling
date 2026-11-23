@@ -43,3 +43,18 @@ test("Google sign-in email allowlists admit single addresses outside the allowed
   assert.equal(isGoogleEmailAllowed("writer@example.com", ["example.com"], emails), true);
   assert.equal(isGoogleEmailAllowed("writer@gmail.com", [], emails), true);
 });
+
+async function requestedScope(directorySync?: string): Promise<string | null> {
+  const response = await startGoogleAuthentication(new Request("https://inkling.example/"), {
+    GOOGLE_ALLOWED_DOMAINS: "example.com",
+    GOOGLE_CLIENT_ID: "client",
+    GOOGLE_CLIENT_SECRET: "secret",
+    GOOGLE_DIRECTORY_SYNC: directorySync,
+  });
+  return new URL(response.headers.get("Location") ?? "").searchParams.get("scope");
+}
+
+test("Google sign-in asks for the user directory unless directory sync is off", async () => {
+  assert.match((await requestedScope()) ?? "", /admin\.directory\.user\.readonly/u);
+  assert.equal(await requestedScope("false"), "openid email profile");
+});

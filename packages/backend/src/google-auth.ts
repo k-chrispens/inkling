@@ -15,6 +15,7 @@ export interface GoogleAuthenticationEnvironment {
   readonly GOOGLE_ALLOWED_EMAILS?: string | undefined;
   readonly GOOGLE_CLIENT_ID?: string | undefined;
   readonly GOOGLE_CLIENT_SECRET?: string | undefined;
+  readonly GOOGLE_DIRECTORY_SYNC?: string | undefined;
   readonly GOOGLE_REDIRECT_URI?: string | undefined;
   readonly INKLING_GOOGLE_AUTHORIZATION_ENDPOINT?: string | undefined;
   readonly INKLING_GOOGLE_CERTIFICATES_ENDPOINT?: string | undefined;
@@ -119,7 +120,9 @@ export async function startGoogleAuthentication(
   authorization.searchParams.set("response_type", "code");
   authorization.searchParams.set(
     "scope",
-    "openid email profile https://www.googleapis.com/auth/admin.directory.user.readonly",
+    configuration.directorySync
+      ? "openid email profile https://www.googleapis.com/auth/admin.directory.user.readonly"
+      : "openid email profile",
   );
   authorization.searchParams.set("state", payload.state);
   authorization.searchParams.set("nonce", payload.nonce);
@@ -216,7 +219,7 @@ export async function finishGoogleAuthentication(
       role: administrators.has(email) ? "administrator" : "member",
     };
     const directoryPeople =
-      accessToken === undefined
+      accessToken === undefined || !configuration.directorySync
         ? []
         : await readGoogleDirectory(accessToken, configuration.directoryEndpoint).catch(() => []);
     const people = await Promise.all(
@@ -289,6 +292,7 @@ function googleConfiguration(request: Request, environment: GoogleAuthentication
       "https://www.googleapis.com/oauth2/v3/certs",
     clientId,
     clientSecret,
+    directorySync: environment.GOOGLE_DIRECTORY_SYNC !== "false",
     directoryEndpoint:
       environment.INKLING_GOOGLE_DIRECTORY_ENDPOINT ??
       "https://admin.googleapis.com/admin/directory/v1/users",
