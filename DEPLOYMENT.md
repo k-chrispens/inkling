@@ -74,6 +74,7 @@ Deployed Inkling renders application pages on the server: the Worker (or the Nod
 
 - `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` identify the Google OAuth web client.
 - `GOOGLE_ALLOWED_DOMAINS` is a comma-separated allowlist. Inkling checks the exact domain of Google's verified email claim; Google's hosted-domain hint is not treated as authorization.
+- `GOOGLE_ALLOWED_EMAILS` is an optional comma-separated list of single addresses that may sign in whatever their domain, such as personal Gmail accounts. Write each address as Google shows it for that account. At least one of the two allowlists must be set.
 - `GOOGLE_ADMIN_EMAILS` is a comma-separated list of allowed users who may administer the workspace. Other allowed users become workspace members. Every user manages their own API keys, which inherit that user's role.
 - `GOOGLE_REDIRECT_URI` must exactly match an authorized redirect URI on the OAuth client.
 - `INKLING_OAUTH_STATE_SECRET` signs short-lived OAuth state. It is optional and falls back to `GOOGLE_CLIENT_SECRET`, but a separate value generated with `openssl rand -base64 48` is recommended.

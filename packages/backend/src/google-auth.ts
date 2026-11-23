@@ -12,6 +12,7 @@ export interface GoogleAuthenticationEnvironment {
   readonly GOOGLE_ADMIN_EMAILS?: string | undefined;
   readonly GOOGLE_ALLOWED_DOMAIN?: string | undefined;
   readonly GOOGLE_ALLOWED_DOMAINS?: string | undefined;
+  readonly GOOGLE_ALLOWED_EMAILS?: string | undefined;
   readonly GOOGLE_CLIENT_ID?: string | undefined;
   readonly GOOGLE_CLIENT_SECRET?: string | undefined;
   readonly GOOGLE_REDIRECT_URI?: string | undefined;
@@ -66,11 +67,31 @@ export function parseAllowedGoogleDomains(value: string | undefined): readonly s
   ];
 }
 
-export function isGoogleEmailAllowed(email: string, allowedDomains: readonly string[]): boolean {
-  const separator = email.lastIndexOf("@");
-  if (separator <= 0 || separator === email.length - 1) return false;
-  const domain = email.slice(separator + 1).toLocaleLowerCase("en");
-  return allowedDomains.includes(domain);
+export function parseAllowedGoogleEmails(value: string | undefined): readonly string[] {
+  if (value === undefined) return [];
+  return [
+    ...new Set(
+      value
+        .split(",")
+        .map((email) => email.trim().toLocaleLowerCase("en"))
+        .filter((email) => {
+          const separator = email.lastIndexOf("@");
+          return separator > 0 && domainPattern.test(email.slice(separator + 1));
+        }),
+    ),
+  ];
+}
+
+export function isGoogleEmailAllowed(
+  email: string,
+  allowedDomains: readonly string[],
+  allowedEmails: readonly string[] = [],
+): boolean {
+  const normalized = email.toLocaleLowerCase("en");
+  if (allowedEmails.includes(normalized)) return true;
+  const separator = normalized.lastIndexOf("@");
+  if (separator <= 0 || separator === normalized.length - 1) return false;
+  return allowedDomains.includes(normalized.slice(separator + 1));
 }
 
 export async function startGoogleAuthentication(
@@ -104,7 +125,7 @@ export async function startGoogleAuthentication(
   authorization.searchParams.set("nonce", payload.nonce);
   authorization.searchParams.set("code_challenge", challenge);
   authorization.searchParams.set("code_challenge_method", "S256");
-  if (configuration.allowedDomains.length === 1) {
+  if (configuration.allowedDomains.length === 1 && configuration.allowedEmails.length === 0) {
     authorization.searchParams.set("hd", configuration.allowedDomains[0] ?? "");
   }
   const headers = new Headers({ Location: authorization.href });
@@ -177,9 +198,9 @@ export async function finishGoogleAuthentication(
     if (
       claims === undefined ||
       !claims.email_verified ||
-      !isGoogleEmailAllowed(claims.email, configuration.allowedDomains)
+      !isGoogleEmailAllowed(claims.email, configuration.allowedDomains, configuration.allowedEmails)
     ) {
-      return oauthFailure("The Google identity is not a verified member of an allowed domain.");
+      return oauthFailure("The Google identity is not verified or not on the allowlist.");
     }
     const email = claims.email.toLocaleLowerCase("en");
     const administrators = new Set(
@@ -249,11 +270,17 @@ function googleConfiguration(request: Request, environment: GoogleAuthentication
   const allowedDomains = parseAllowedGoogleDomains(
     environment.GOOGLE_ALLOWED_DOMAINS ?? environment.GOOGLE_ALLOWED_DOMAIN,
   );
-  if (clientId === undefined || clientSecret === undefined || allowedDomains.length === 0) {
+  const allowedEmails = parseAllowedGoogleEmails(environment.GOOGLE_ALLOWED_EMAILS);
+  if (
+    clientId === undefined ||
+    clientSecret === undefined ||
+    (allowedDomains.length === 0 && allowedEmails.length === 0)
+  ) {
     return undefined;
   }
   return {
     allowedDomains,
+    allowedEmails,
     authorizationEndpoint:
       environment.INKLING_GOOGLE_AUTHORIZATION_ENDPOINT ??
       "https://accounts.google.com/o/oauth2/v2/auth",

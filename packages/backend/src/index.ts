@@ -118,6 +118,7 @@ export {
   finishGoogleAuthentication,
   isGoogleEmailAllowed,
   parseAllowedGoogleDomains,
+  parseAllowedGoogleEmails,
   startGoogleAuthentication,
 } from "./google-auth.ts";
 export type { GoogleAuthenticationEnvironment, GoogleIdentityLogin } from "./google-auth.ts";

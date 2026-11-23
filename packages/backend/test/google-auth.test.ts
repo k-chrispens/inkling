@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   isGoogleEmailAllowed,
   parseAllowedGoogleDomains,
+  parseAllowedGoogleEmails,
   startGoogleAuthentication,
 } from "../src/google-auth.ts";
 
@@ -31,4 +32,14 @@ test("Google sign-in domain allowlists are normalized and matched exactly", () =
   assert.equal(isGoogleEmailAllowed("writer@notexample.com", domains), false);
   assert.equal(isGoogleEmailAllowed("writer@example.com.attacker.invalid", domains), false);
   assert.equal(isGoogleEmailAllowed("missing-domain", domains), false);
+});
+
+test("Google sign-in email allowlists admit single addresses outside the allowed domains", () => {
+  const emails = parseAllowedGoogleEmails(" Writer@Gmail.com, writer@gmail.com,not-an-email ");
+
+  assert.deepEqual(emails, ["writer@gmail.com"]);
+  assert.equal(isGoogleEmailAllowed("WRITER@gmail.com", ["example.com"], emails), true);
+  assert.equal(isGoogleEmailAllowed("other@gmail.com", ["example.com"], emails), false);
+  assert.equal(isGoogleEmailAllowed("writer@example.com", ["example.com"], emails), true);
+  assert.equal(isGoogleEmailAllowed("writer@gmail.com", [], emails), true);
 });
