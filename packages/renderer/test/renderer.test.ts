@@ -455,3 +455,33 @@ How we work. Text and [ordinary links](https://example.com) stay out.
     ],
   );
 });
+
+test("math renders as MathML without inline styles", async () => {
+  const rendered = await Effect.runPromise(
+    renderer.render(
+      "Inline $E = mc^2$ and broken $\\frac{1$.\n\n$$\n\\int_0^1 x^2\\,dx\n$$\n\n## Loss $L$\n",
+    ),
+  );
+  assert.match(rendered.html, /<math xmlns="http:\/\/www\.w3\.org\/1998\/Math\/MathML">/u);
+  assert.match(rendered.html, /<math [^>]*display="block"/u);
+  assert.match(rendered.html, /class="katex-error"/u);
+  assert.doesNotMatch(rendered.html, / style="/u);
+  assert.equal(rendered.headings[0]?.text, "Loss L");
+});
+
+test("dollar signs in prices and code stay literal", async () => {
+  const rendered = await Effect.runPromise(
+    renderer.render("It costs $5 and $10 total.\n\n`$a$`\n\n```\n$b$\n```\n"),
+  );
+  assert.doesNotMatch(rendered.html, /<math/u);
+  assert.match(rendered.html, /costs \$5 and \$10 total/u);
+  assert.match(rendered.html, /<code>\$a\$<\/code>/u);
+});
+
+test("math cannot carry links or HTML attributes", async () => {
+  const rendered = await Effect.runPromise(
+    renderer.render("$\\href{javascript:alert(1)}{x}$ $\\htmlClass{a}{b}$"),
+  );
+  assert.doesNotMatch(rendered.html, /href=/u);
+  assert.doesNotMatch(rendered.html, /class="a"/u);
+});
