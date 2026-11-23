@@ -4,6 +4,7 @@ import { personId } from "@earendil-works/inkling-core";
 import type { PeopleDirectoryEntry, WorkspaceIdentity } from "@earendil-works/inkling-core";
 
 import type { SessionResult } from "./application.ts";
+import { continuePage } from "./mcp/oauth.ts";
 
 const domainPattern =
   /^(?:[a-z\d](?:[a-z\d-]{0,61}[a-z\d])?\.)+[a-z\d](?:[a-z\d-]{0,61}[a-z\d])?$/u;
@@ -12,8 +13,10 @@ export interface GoogleAuthenticationEnvironment {
   readonly GOOGLE_ADMIN_EMAILS?: string | undefined;
   readonly GOOGLE_ALLOWED_DOMAIN?: string | undefined;
   readonly GOOGLE_ALLOWED_DOMAINS?: string | undefined;
+  readonly GOOGLE_ALLOWED_EMAILS?: string | undefined;
   readonly GOOGLE_CLIENT_ID?: string | undefined;
   readonly GOOGLE_CLIENT_SECRET?: string | undefined;
+  readonly GOOGLE_DIRECTORY_SYNC?: string | undefined;
   readonly GOOGLE_REDIRECT_URI?: string | undefined;
   readonly INKLING_GOOGLE_AUTHORIZATION_ENDPOINT?: string | undefined;
   readonly INKLING_GOOGLE_CERTIFICATES_ENDPOINT?: string | undefined;
@@ -66,11 +69,31 @@ export function parseAllowedGoogleDomains(value: string | undefined): readonly s
   ];
 }
 
-export function isGoogleEmailAllowed(email: string, allowedDomains: readonly string[]): boolean {
-  const separator = email.lastIndexOf("@");
-  if (separator <= 0 || separator === email.length - 1) return false;
-  const domain = email.slice(separator + 1).toLocaleLowerCase("en");
-  return allowedDomains.includes(domain);
+export function parseAllowedGoogleEmails(value: string | undefined): readonly string[] {
+  if (value === undefined) return [];
+  return [
+    ...new Set(
+      value
+        .split(",")
+        .map((email) => email.trim().toLocaleLowerCase("en"))
+        .filter((email) => {
+          const separator = email.lastIndexOf("@");
+          return separator > 0 && domainPattern.test(email.slice(separator + 1));
+        }),
+    ),
+  ];
+}
+
+export function isGoogleEmailAllowed(
+  email: string,
+  allowedDomains: readonly string[],
+  allowedEmails: readonly string[] = [],
+): boolean {
+  const normalized = email.toLocaleLowerCase("en");
+  if (allowedEmails.includes(normalized)) return true;
+  const separator = normalized.lastIndexOf("@");
+  if (separator <= 0 || separator === normalized.length - 1) return false;
+  return allowedDomains.includes(normalized.slice(separator + 1));
 }
 
 export async function startGoogleAuthentication(
@@ -98,13 +121,15 @@ export async function startGoogleAuthentication(
   authorization.searchParams.set("response_type", "code");
   authorization.searchParams.set(
     "scope",
-    "openid email profile https://www.googleapis.com/auth/admin.directory.user.readonly",
+    configuration.directorySync
+      ? "openid email profile https://www.googleapis.com/auth/admin.directory.user.readonly"
+      : "openid email profile",
   );
   authorization.searchParams.set("state", payload.state);
   authorization.searchParams.set("nonce", payload.nonce);
   authorization.searchParams.set("code_challenge", challenge);
   authorization.searchParams.set("code_challenge_method", "S256");
-  if (configuration.allowedDomains.length === 1) {
+  if (configuration.allowedDomains.length === 1 && configuration.allowedEmails.length === 0) {
     authorization.searchParams.set("hd", configuration.allowedDomains[0] ?? "");
   }
   const headers = new Headers({ Location: authorization.href });
@@ -177,9 +202,9 @@ export async function finishGoogleAuthentication(
     if (
       claims === undefined ||
       !claims.email_verified ||
-      !isGoogleEmailAllowed(claims.email, configuration.allowedDomains)
+      !isGoogleEmailAllowed(claims.email, configuration.allowedDomains, configuration.allowedEmails)
     ) {
-      return oauthFailure("The Google identity is not a verified member of an allowed domain.");
+      return oauthFailure("The Google identity is not verified or not on the allowlist.");
     }
     const email = claims.email.toLocaleLowerCase("en");
     const administrators = new Set(
@@ -195,7 +220,7 @@ export async function finishGoogleAuthentication(
       role: administrators.has(email) ? "administrator" : "member",
     };
     const directoryPeople =
-      accessToken === undefined
+      accessToken === undefined || !configuration.directorySync
         ? []
         : await readGoogleDirectory(accessToken, configuration.directoryEndpoint).catch(() => []);
     const people = await Promise.all(
@@ -209,7 +234,8 @@ export async function finishGoogleAuthentication(
       })),
     );
     const session = await login(identity, people);
-    const headers = new Headers({ Location: payload.returnTo });
+    const response = continuePage(payload.returnTo);
+    const { headers } = response;
     headers.append(
       "Set-Cookie",
       cookieHeader("inkling_session", session.sessionToken, request, {
@@ -237,7 +263,7 @@ export async function finishGoogleAuthentication(
         sameSite: "Lax",
       }),
     );
-    return new Response(null, { headers, status: 302 });
+    return response;
   } catch {
     return oauthFailure("Google authentication could not be completed.");
   }
@@ -249,11 +275,17 @@ function googleConfiguration(request: Request, environment: GoogleAuthentication
   const allowedDomains = parseAllowedGoogleDomains(
     environment.GOOGLE_ALLOWED_DOMAINS ?? environment.GOOGLE_ALLOWED_DOMAIN,
   );
-  if (clientId === undefined || clientSecret === undefined || allowedDomains.length === 0) {
+  const allowedEmails = parseAllowedGoogleEmails(environment.GOOGLE_ALLOWED_EMAILS);
+  if (
+    clientId === undefined ||
+    clientSecret === undefined ||
+    (allowedDomains.length === 0 && allowedEmails.length === 0)
+  ) {
     return undefined;
   }
   return {
     allowedDomains,
+    allowedEmails,
     authorizationEndpoint:
       environment.INKLING_GOOGLE_AUTHORIZATION_ENDPOINT ??
       "https://accounts.google.com/o/oauth2/v2/auth",
@@ -262,6 +294,7 @@ function googleConfiguration(request: Request, environment: GoogleAuthentication
       "https://www.googleapis.com/oauth2/v3/certs",
     clientId,
     clientSecret,
+    directorySync: environment.GOOGLE_DIRECTORY_SYNC !== "false",
     directoryEndpoint:
       environment.INKLING_GOOGLE_DIRECTORY_ENDPOINT ??
       "https://admin.googleapis.com/admin/directory/v1/users",

@@ -91,8 +91,10 @@ export interface CloudflareEnvironment {
   readonly GOOGLE_ADMIN_EMAILS?: string | undefined;
   readonly GOOGLE_ALLOWED_DOMAIN?: string | undefined;
   readonly GOOGLE_ALLOWED_DOMAINS?: string | undefined;
+  readonly GOOGLE_ALLOWED_EMAILS?: string | undefined;
   readonly GOOGLE_CLIENT_ID?: string | undefined;
   readonly GOOGLE_CLIENT_SECRET?: string | undefined;
+  readonly GOOGLE_DIRECTORY_SYNC?: string | undefined;
   readonly GOOGLE_REDIRECT_URI?: string | undefined;
   readonly INKLING_GOOGLE_AUTHORIZATION_ENDPOINT?: string | undefined;
   readonly INKLING_GOOGLE_CERTIFICATES_ENDPOINT?: string | undefined;

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
-import { access, mkdtemp, readFile, rm } from "node:fs/promises";
+import { access, mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { createServer as createHttpServer } from "node:http";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
@@ -32,6 +32,15 @@ test("the application shell keeps agent instructions in visible body text", asyn
   assert.match(visibleText, /read_document/u);
 });
 
+test("minification keeps the lone surrogates in KaTeX's tokenizer pattern", async () => {
+  const assets = new URL("../dist/assets/", import.meta.url);
+  const scripts = (await readdir(assets)).filter((name) => name.endsWith(".js"));
+  const sources = await Promise.all(scripts.map((name) => readFile(new URL(name, assets), "utf8")));
+  for (const [index, source] of sources.entries()) {
+    assert.doesNotMatch(source, /\uFFFDd800/u, scripts[index]);
+  }
+});
+
 test(
   "browser pages read, collaborate, comment, preview, and honor share revocation",
   // One long end-to-end session: about 25 seconds locally, but GitHub runners take twice that.
@@ -40,7 +49,8 @@ test(
     assert.ok(browserExecutable);
     const directory = await mkdtemp(path.join(tmpdir(), "inkling-browser-"));
     const port = await availablePort();
-    const baseUrl = `http://127.0.0.1:${port}`;
+    // The Google mock listens on 127.0.0.1, so "localhost" makes it another site, as Google is.
+    const baseUrl = `http://localhost:${port}`;
     const google = await startGoogleOAuthMock();
     const server = spawn("node", ["../runtime-node/src/main.ts"], {
       cwd: path.resolve(import.meta.dirname, ".."),
@@ -1761,7 +1771,13 @@ async function startGoogleOAuthMock(): Promise<RunningGoogleOAuthMock> {
       const callback = new URL(redirectUri);
       callback.searchParams.set("code", "browser-authorization-code");
       callback.searchParams.set("state", state);
-      response.writeHead(302, { Location: callback.href }).end();
+      // Google's consent page starts the navigation back, so this page does too: a plain
+      // redirect would keep the navigation same-site and hide SameSite=Strict cookie bugs.
+      response
+        .writeHead(200, { "Content-Type": "text/html" })
+        .end(
+          `<meta http-equiv="refresh" content="0;url=${callback.href.replaceAll("&", "&amp;")}">`,
+        );
       return;
     }
     if (url.pathname === "/token") {

@@ -30,6 +30,12 @@ export default defineConfig(({ isSsrBuild = false }) => ({
     : {
         target: "es2023",
       },
+  // The math plugin loads KaTeX with require(). Rolldown's minifier corrupts the lone
+  // surrogates in that CommonJS build's tokenizer pattern; the ES module build survives,
+  // and Mermaid already ships it.
+  resolve: {
+    alias: [{ find: /^katex$/u, replacement: "katex/dist/katex.mjs" }],
+  },
   ssr: {
     noExternal: true,
   },

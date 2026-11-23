@@ -892,8 +892,8 @@ async function loginWithGoogle(baseUrl: string, returnTo = "/"): Promise<string>
     headers: { Cookie: oauthCookie },
     redirect: "manual",
   });
-  assert.equal(callback.status, 302);
-  assert.equal(callback.headers.get("location"), returnTo);
+  assert.equal(callback.status, 200);
+  assert.ok((await callback.text()).includes(`content="0;url=${returnTo}"`));
   const cookie = callback.headers
     .getSetCookie()
     .map((value) => value.split(";")[0])

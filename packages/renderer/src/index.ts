@@ -2,6 +2,7 @@ import { LanguageDescription } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
 import { classHighlighter, highlightCode } from "@lezer/highlight";
 import { Context, Data, Effect, Layer } from "effect";
+import markdownItKatexModule from "@vscode/markdown-it-katex";
 import MarkdownIt from "markdown-it";
 import type { MarkdownIt as MarkdownItType, Token } from "markdown-it";
 import YAML from "yaml";
@@ -260,13 +261,30 @@ async function renderMarkdown(
   };
 }
 
+// The package is CommonJS: bundlers hand over the plugin itself, Node's ESM loader wraps it.
+const markdownItKatex =
+  "default" in markdownItKatexModule
+    ? (markdownItKatexModule.default as typeof markdownItKatexModule)
+    : markdownItKatexModule;
+
+const mathRules = ["math_block", "math_inline", "math_inline_bare_block", "math_inline_block"];
+
 function createParser(): MarkdownItType {
-  return new MarkdownIt({
+  // The content security policy blocks inline styles: MathML needs none, and KaTeX's
+  // error markup loses its one style attribute below.
+  const parser = new MarkdownIt({
     breaks: true,
     html: false,
     linkify: true,
     typographer: false,
-  });
+  }).use(markdownItKatex, { output: "mathml", strict: "ignore", throwOnError: false });
+  for (const name of mathRules) {
+    const rule = parser.renderer.rules[name];
+    if (rule === undefined) continue;
+    parser.renderer.rules[name] = (...arguments_) =>
+      rule(...arguments_).replace(/ style="[^"]*"/gu, "");
+  }
+  return parser;
 }
 
 /**

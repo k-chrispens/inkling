@@ -1,0 +1,7 @@
+engineStrict: true
+saveExact: true
+strictPeerDependencies: true
+# pnpm 10 skipped these build scripts without asking; keep them skipped.
+allowBuilds:
+  esbuild: false
+  workerd: false

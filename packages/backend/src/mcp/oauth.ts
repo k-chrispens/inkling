@@ -565,7 +565,11 @@ function consentPage(
   return page(`Connect ${request.client.name}`, body, 200, formTarget);
 }
 
-function continuePage(target: string): Response {
+/**
+ * A page that navigates to `target` by itself. Browsers withhold `SameSite=Strict` cookies
+ * from a navigation another site started, redirects included; this one starts here.
+ */
+export function continuePage(target: string): Response {
   const href = escapeHtml(target);
   return page(
     "Continue to Inkling",
