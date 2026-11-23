@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
-import { access, mkdtemp, readFile, rm } from "node:fs/promises";
+import { access, mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { createServer as createHttpServer } from "node:http";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
@@ -30,6 +30,15 @@ test("the application shell keeps agent instructions in visible body text", asyn
   assert.match(visibleText, /Agent access/u);
   assert.doesNotMatch(html, /AGENTS\.md/u);
   assert.match(visibleText, /read_document/u);
+});
+
+test("minification keeps the lone surrogates in KaTeX's tokenizer pattern", async () => {
+  const assets = new URL("../dist/assets/", import.meta.url);
+  const scripts = (await readdir(assets)).filter((name) => name.endsWith(".js"));
+  const sources = await Promise.all(scripts.map((name) => readFile(new URL(name, assets), "utf8")));
+  for (const [index, source] of sources.entries()) {
+    assert.doesNotMatch(source, /\uFFFDd800/u, scripts[index]);
+  }
 });
 
 test(
