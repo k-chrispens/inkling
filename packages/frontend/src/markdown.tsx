@@ -315,6 +315,9 @@ function mermaidThemeVariables(): Record<string, string> {
     primaryBorderColor: border,
     primaryColor: value("--mermaid-primary"),
     primaryTextColor: text,
+    // The base theme derives these as near-white whatever the scheme, hiding dark-mode text.
+    rowEven: value("--mermaid-primary"),
+    rowOdd: background,
     secondaryColor: value("--mermaid-secondary"),
     signalColor: line,
     signalTextColor: text,

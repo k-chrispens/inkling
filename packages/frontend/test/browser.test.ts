@@ -540,7 +540,7 @@ test(
       await first.locator(".cm-content").click();
       await first.keyboard.press("ControlOrMeta+End");
       await first.keyboard.insertText(
-        "\nShared starting body\n\n## Architecture\n\nSecond line\n\n```ts\nconst answer: number = 42;\n```\n\n```mermaid\nflowchart LR\n  A --> B\n```\n\n```mermaid\nnot a mermaid diagram\n```\n\nThird line\n\n## Delivery\n\nFourth line",
+        "\nShared starting body\n\n## Architecture\n\nSecond line\n\n```ts\nconst answer: number = 42;\n```\n\n```mermaid\nerDiagram\n  trials { id trial_id string protein }\n```\n\n```mermaid\nnot a mermaid diagram\n```\n\nThird line\n\n## Delivery\n\nFourth line",
       );
       await first.waitForSelector(".cm-content .tok-keyword");
       await first.waitForSelector("[data-preview] .tok-keyword");
@@ -551,6 +551,37 @@ test(
         /not a mermaid diagram/u,
       );
       assert.equal(await first.locator('body > div[id^="dinkling-mermaid-"]').count(), 0);
+      await first.waitForFunction(oddRowFill);
+      const schemeBeforeDark = await first.locator("html").getAttribute("data-color-scheme");
+      const fillBeforeDark = await first.evaluate(oddRowFill);
+      await first.evaluate(() => (document.documentElement.dataset["colorScheme"] = "dark"));
+      // Mermaid's base theme fills odd ER rows near-white unless told otherwise, hiding dark-mode text.
+      await first.waitForFunction(() => {
+        const row = document.querySelector("[data-preview] .row-rect-odd path");
+        const text = getComputedStyle(document.documentElement).getPropertyValue(
+          "--mermaid-primary-text",
+        );
+        const canvas = document.createElement("canvas").getContext("2d");
+        if (row === null || canvas === null) return false;
+        const brightness = (color: string): number => {
+          canvas.fillStyle = color;
+          canvas.fillRect(0, 0, 1, 1);
+          const [red = 0, green = 0, blue = 0] = canvas.getImageData(0, 0, 1, 1).data;
+          return red + green + blue;
+        };
+        return brightness(text) - brightness(getComputedStyle(row).fill) > 300;
+      });
+      await first.evaluate((scheme) => {
+        if (scheme === null) delete document.documentElement.dataset["colorScheme"];
+        else document.documentElement.dataset["colorScheme"] = scheme;
+      }, schemeBeforeDark);
+      await first.waitForFunction(
+        ([selector, fill]) => {
+          const row = document.querySelector(selector);
+          return row !== null && getComputedStyle(row).fill === fill;
+        },
+        ["[data-preview] .row-rect-odd path", fillBeforeDark] as const,
+      );
       await first.waitForFunction(
         () => document.querySelector('[data-save-state="ready"]') !== null,
       );
@@ -1881,6 +1912,11 @@ function settledLineGeometry(): Promise<{ height: number; top: number }[]> {
     };
     measure();
   });
+}
+
+function oddRowFill(): string | undefined {
+  const row = document.querySelector("[data-preview] .row-rect-odd path");
+  return row === null ? undefined : getComputedStyle(row).fill;
 }
 
 async function findBrowser(): Promise<string | undefined> {
