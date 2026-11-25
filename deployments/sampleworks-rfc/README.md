@@ -49,3 +49,29 @@ From the repository root:
 pnpm --filter @earendil-works/inkling-frontend build
 pnpm --filter inkling-deployment-sampleworks-rfc run deploy
 ```
+
+## Backups
+
+`.github/workflows/backup-sampleworks-rfc.yml` exports the workspace every Monday and uploads it
+to the private `sampleworks-inkling-backups` bucket. It can also be run by hand from the Actions
+tab. A backup includes unpublished drafts.
+
+One-time setup:
+
+1. Create the bucket, from this directory:
+
+   ```sh
+   pnpm exec wrangler r2 bucket create sampleworks-inkling-backups
+   ```
+
+   Decline Wrangler's offer to add the bucket to `wrangler.jsonc`: the Worker does not use it.
+
+2. In the GitHub repository settings, under "Secrets and variables" for Actions, add:
+
+   | Kind     | Name                    | Value                                                       |
+   | -------- | ----------------------- | ----------------------------------------------------------- |
+   | Secret   | `INKLING_API_KEY`       | An API key an administrator created from the account menu   |
+   | Secret   | `CLOUDFLARE_API_TOKEN`  | A Cloudflare API token with "Workers R2 Storage: Edit"      |
+   | Variable | `CLOUDFLARE_ACCOUNT_ID` | The account ID shown on the Cloudflare dashboard's overview |
+
+To restore, download a backup from the bucket and run `inkling restore WORKSPACE BACKUP`.
