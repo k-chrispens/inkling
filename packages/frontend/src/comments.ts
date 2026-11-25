@@ -14,6 +14,18 @@ export interface ProjectedCommentThread {
   readonly thread: CommentThreadDto;
 }
 
+/** Threads as a reader meets them: by position in the text, then those whose text is gone. */
+export function commentThreadsInReadingOrder(
+  projections: readonly ProjectedCommentThread[],
+): readonly ProjectedCommentThread[] {
+  return projections.toSorted(
+    (left, right) =>
+      Number(left.orphaned) - Number(right.orphaned) ||
+      left.start - right.start ||
+      left.thread.createdAt.localeCompare(right.thread.createdAt),
+  );
+}
+
 export interface PreviewSourceRange {
   readonly end: number;
   readonly start: number;

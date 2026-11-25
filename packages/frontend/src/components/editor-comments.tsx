@@ -8,6 +8,7 @@ import { ApiError } from "../api.ts";
 import type { ApiClientService } from "../api.ts";
 import { useAppContext } from "../app-context.tsx";
 import {
+  commentThreadsInReadingOrder,
   renderPreviewCommentBubbles,
   renderPreviewCommentComposer,
   updateEditorCommentComposer,
@@ -59,6 +60,24 @@ export interface EditorCommentsHandle {
   readonly setPreviewSelection: (range: PreviewSourceRange | undefined) => void;
 }
 
+const showResolvedStorageKey = "inkling:comments:show-resolved";
+
+function storedShowResolved(): boolean {
+  try {
+    return localStorage.getItem(showResolvedStorageKey) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function storeShowResolved(show: boolean): void {
+  try {
+    localStorage.setItem(showResolvedStorageKey, String(show));
+  } catch {
+    // Storage can be unavailable; the choice then lasts for this page only.
+  }
+}
+
 export interface EditorCommentsProps {
   readonly api: ApiClientService;
   readonly authorDisplayName: string;
@@ -97,6 +116,11 @@ export function EditorComments({
   const controlsRef = useRef<CommentControlsHandle>(null);
   const [projectedComments, setProjectedComments] = useState<readonly ProjectedCommentThread[]>([]);
   const [showResolved, setShowResolved] = useState(false);
+  useEffect(() => setShowResolved(storedShowResolved()), []);
+  const changeShowResolved = (show: boolean): void => {
+    setShowResolved(show);
+    storeShowResolved(show);
+  };
   const [previewSelection, setPreviewSelection] = useState<PreviewSourceRange>();
   const [activeThreadId, setActiveThreadId] = useState<string>();
   const [activeSurface, setActiveSurface] = useState<"preview" | "source">("preview");
@@ -286,14 +310,32 @@ export function EditorComments({
 
   useImperativeHandle(ref, () => ({
     handleWorkbenchClick,
-    openControls: () => controlsRef.current?.open(),
+    openControls: () => {
+      setActiveThreadId(undefined);
+      controlsRef.current?.open();
+    },
     setPreviewSelection,
   }));
 
   const activeThread = comments.threads.find((thread) => thread.id === activeThreadId);
-  const orphaned = projectedComments.filter(
-    (projection) => projection.orphaned && (showResolved || !projection.thread.resolved),
-  );
+  const listedThreads = commentThreadsInReadingOrder(visibleProjections);
+  const openListedThread = (threadId: string): void => {
+    const bubble = [
+      ...document.querySelectorAll<HTMLElement>(
+        `[data-comment-bubble="${CSS.escape(threadId)}"]:not([data-comment-listed])`,
+      ),
+    ]
+      .toSorted(
+        (left, right) =>
+          Number(right.dataset["commentSurface"] === "preview") -
+          Number(left.dataset["commentSurface"] === "preview"),
+      )
+      .find((candidate) => candidate.checkVisibility());
+    if (bubble === undefined) return;
+    controlsRef.current?.close();
+    bubble.scrollIntoView({ block: "center" });
+    handleWorkbenchClick(bubble);
+  };
   const createRequest = composer?.kind === "create" ? composer : undefined;
   const editRequest = composer?.kind === "edit" ? composer : undefined;
   const replyRequest = composer?.kind === "reply" ? composer : undefined;
@@ -308,10 +350,12 @@ export function EditorComments({
     <>
       <CommentControls
         anchorRef={controlsAnchorRef}
-        onShowResolvedChange={setShowResolved}
-        orphaned={orphaned}
+        onOpenThread={openListedThread}
+        onShowResolvedChange={changeShowResolved}
         ref={controlsRef}
+        resolvedCount={comments.threads.filter((thread) => thread.resolved).length}
         showResolved={showResolved}
+        threads={listedThreads}
       />
       <AnchoredPopover
         anchorRef={activeAnchorRef}

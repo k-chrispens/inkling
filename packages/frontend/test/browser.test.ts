@@ -1319,6 +1319,41 @@ test(
       );
       await second.locator("[data-comment-close]").click();
 
+      await second.locator("[data-open-comments]").click();
+      const listedThreads = second.locator("[data-comment-list] [data-comment-listed]");
+      assert.equal(await listedThreads.count(), 2);
+      const repliedThread = listedThreads.filter({ hasText: "Preview segment comment" });
+      assert.match((await repliedThread.textContent()) ?? "", /A composed reply/u);
+      assert.equal(await repliedThread.locator("time").count(), 2);
+      await repliedThread.click();
+      await second.waitForFunction(() =>
+        document.querySelector("[data-comment-card]")?.textContent?.includes("A composed reply"),
+      );
+      await second.waitForSelector("[data-comment-controls]", { state: "detached" });
+      assert.equal(await second.locator("[data-comment-card] time").count(), 2);
+      await second.locator("[data-comment-card] [data-resolve-thread]").click();
+      await second.waitForFunction(
+        () => document.querySelector("[data-comment-count]")?.textContent === "1",
+      );
+      await second.locator("[data-open-comments]").click();
+      assert.equal(await listedThreads.count(), 1);
+      await second.locator("[data-show-resolved]").click();
+      assert.equal(await listedThreads.count(), 2);
+      assert.match((await repliedThread.textContent()) ?? "", /^Resolved/u);
+      assert.equal(
+        await second.evaluate(() => localStorage.getItem("inkling:comments:show-resolved")),
+        "true",
+      );
+      await repliedThread.click();
+      await second.locator("[data-comment-card] [data-resolve-thread]").click();
+      await second.waitForFunction(
+        () => document.querySelector("[data-comment-count]")?.textContent === "2",
+      );
+      await second.locator("[data-comment-close]").click();
+      await second.locator("[data-open-comments]").click();
+      await second.locator("[data-show-resolved]").click();
+      await second.locator("[data-comment-controls] [aria-label='Close comments']").click();
+
       const layout = await first.evaluate(() => {
         const source = document.querySelector("[data-source-pane]")?.getBoundingClientRect();
         const preview = document.querySelector("[data-preview-pane]")?.getBoundingClientRect();
