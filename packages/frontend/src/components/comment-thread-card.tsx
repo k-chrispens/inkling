@@ -4,6 +4,7 @@ import { CloseIcon } from "@earendil-works/elanor-icons-react";
 import { Button, IconButton, Stack } from "@earendil-works/elanor-react";
 import type { CommentThreadDto } from "@earendil-works/inkling-protocol";
 
+import { formatLocalDate } from "../ui.ts";
 import { AnchoredPopover } from "./anchored-popover.tsx";
 import { CommentComposer } from "./comment-composer.tsx";
 import styles from "./comments.module.css";
@@ -84,7 +85,10 @@ export function CommentThreadCard({
           </blockquote>
           {thread.messages.map((message) => (
             <div className={styles["message"]} key={message.id}>
-              <b>{message.authorDisplayName}</b>
+              <span className={styles["byline"]}>
+                <b>{message.authorDisplayName}</b>
+                <time dateTime={message.createdAt}>{formatLocalDate(message.createdAt)}</time>
+              </span>
               <p>{message.body}</p>
               <Stack direction="row" gap="xSmall">
                 <Button

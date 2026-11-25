@@ -11,6 +11,7 @@ import {
 } from "@earendil-works/elanor-react";
 
 import type { ProjectedCommentThread } from "../comments.ts";
+import { formatLocalDate } from "../ui.ts";
 import styles from "./comments.module.css";
 
 export interface CommentControlsHandle {
@@ -20,18 +21,23 @@ export interface CommentControlsHandle {
 
 export interface CommentControlsProps {
   readonly anchorRef: RefObject<HTMLElement | null>;
+  readonly onOpenThread: (threadId: string) => void;
   readonly onShowResolvedChange: (show: boolean) => void;
-  readonly orphaned: readonly ProjectedCommentThread[];
   readonly ref?: React.Ref<CommentControlsHandle> | undefined;
+  readonly resolvedCount: number;
   readonly showResolved: boolean;
+  /** The threads to list, in reading order. */
+  readonly threads: readonly ProjectedCommentThread[];
 }
 
 export function CommentControls({
   anchorRef,
+  onOpenThread,
   onShowResolvedChange,
-  orphaned,
   ref,
+  resolvedCount,
   showResolved,
+  threads,
 }: CommentControlsProps): React.JSX.Element {
   const [open, setOpen] = useState(false);
 
@@ -49,19 +55,19 @@ export function CommentControls({
       <Popover.Portal>
         <Popover.Positioner align="end" anchor={anchorRef} collisionPadding={16} sideOffset={8}>
           <Popover.Popup
-            aria-label="Comment controls"
+            aria-label="Comments"
             className={styles["menu"]}
             data-comment-controls=""
             id="comment-menu"
           >
             <Stack align="start" direction="row" gap="auto">
               <Stack gap="xxSmall">
-                <Popover.Title>Comments in context</Popover.Title>
+                <Popover.Title>Comments</Popover.Title>
                 <Popover.Description>
-                  Select Markdown or rendered text to reveal its inline comment control.
+                  Select Markdown or rendered text to comment on it.
                 </Popover.Description>
               </Stack>
-              <IconButton aria-label="Close comment controls" onClick={() => setOpen(false)}>
+              <IconButton aria-label="Close comments" onClick={() => setOpen(false)}>
                 <CloseIcon />
               </IconButton>
             </Stack>
@@ -76,32 +82,55 @@ export function CommentControls({
                 </Checkbox.Root>
               }
             >
-              Show resolved threads
+              Show resolved threads ({resolvedCount})
             </SelectionControlAndLabel>
-            {orphaned.length === 0 ? null : (
-              <div className={styles["orphaned"]} data-orphaned-comments="">
-                <p>
-                  <b>
-                    {orphaned.length} orphaned {orphaned.length === 1 ? "thread" : "threads"}
-                  </b>
-                  <br />
-                  {orphaned.length === 1 ? "Its" : "Their"} original text was removed.
-                </p>
-                {orphaned.map((projection) => (
-                  <button
-                    className={styles["orphanedThread"]}
-                    data-comment-bubble={projection.thread.id}
-                    data-comment-surface="preview"
-                    key={projection.thread.id}
-                    type="button"
-                  >
-                    <span>
-                      {projection.thread.messages[0]?.authorDisplayName ?? "Unknown author"}
-                    </span>
-                    {projection.thread.messages[0]?.body ?? "Open comment"}
-                  </button>
+            {threads.length === 0 ? (
+              <p className={styles["noThreads"]}>
+                {resolvedCount === 0 ? "No comments yet." : "No open comments."}
+              </p>
+            ) : (
+              <ol className={styles["threadList"]} data-comment-list="">
+                {threads.map(({ orphaned, thread }) => (
+                  <li key={thread.id}>
+                    <button
+                      className={`${styles["listedThread"]}${thread.resolved ? ` ${styles["resolved"]}` : ""}`}
+                      data-comment-listed={thread.id}
+                      onClick={orphaned ? undefined : () => onOpenThread(thread.id)}
+                      type="button"
+                      // A thread whose text is gone has no place in the document, so its
+                      // card opens against this entry.
+                      {...(orphaned
+                        ? { "data-comment-bubble": thread.id, "data-comment-surface": "preview" }
+                        : {})}
+                    >
+                      {orphaned || thread.resolved ? (
+                        <span className={styles["listedStatus"]}>
+                          {[
+                            thread.resolved ? "Resolved" : undefined,
+                            orphaned ? "Original text removed" : undefined,
+                          ]
+                            .filter((status) => status !== undefined)
+                            .join(" · ")}
+                        </span>
+                      ) : null}
+                      {thread.anchor.quote === "" ? null : (
+                        <span className={styles["listedQuote"]}>{thread.anchor.quote}</span>
+                      )}
+                      {thread.messages.map((message) => (
+                        <span className={styles["listedMessage"]} key={message.id}>
+                          <span className={styles["byline"]}>
+                            <b>{message.authorDisplayName}</b>
+                            <time dateTime={message.createdAt}>
+                              {formatLocalDate(message.createdAt)}
+                            </time>
+                          </span>
+                          <span>{message.body}</span>
+                        </span>
+                      ))}
+                    </button>
+                  </li>
                 ))}
-              </div>
+              </ol>
             )}
           </Popover.Popup>
         </Popover.Positioner>

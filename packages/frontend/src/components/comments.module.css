@@ -7,26 +7,30 @@
   box-shadow: var(--semantic-shadow-popup);
 }
 
-.orphaned {
-  display: grid;
-  gap: var(--semantic-dimension-space-gap-x-small);
-  padding-block-start: var(--semantic-dimension-space-padding-large);
-  border-block-start: var(--semantic-dimension-border-width-small) solid
-    var(--semantic-color-border-secondary);
+.menu {
+  max-block-size: min(40rem, calc(100vh - 6rem));
+  overflow-y: auto;
 }
 
-.orphaned > p {
+.noThreads {
   margin: 0;
   color: var(--semantic-color-text-secondary);
   font: var(--semantic-typography-ui-secondary);
 }
 
-.orphanedThread {
+.threadList {
+  display: grid;
+  gap: var(--semantic-dimension-space-gap-x-small);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.listedThread {
   display: grid;
   inline-size: 100%;
-  gap: var(--semantic-dimension-space-gap-xx-small);
+  gap: var(--semantic-dimension-space-gap-x-small);
   padding: var(--semantic-dimension-space-padding-medium);
-  overflow: hidden;
   border: 0;
   border-radius: var(--semantic-dimension-radius-small);
   background: var(--semantic-color-background-fill-secondary);
@@ -34,15 +38,42 @@
   cursor: pointer;
   font: var(--semantic-typography-ui-secondary);
   text-align: start;
+}
+
+.listedThread:hover {
+  background: var(--semantic-color-background-fill-secondary-hover);
+}
+
+.listedStatus {
+  color: var(--semantic-color-text-secondary);
+  font: var(--semantic-typography-ui-label);
+}
+
+.listedQuote {
+  padding-inline-start: var(--semantic-dimension-space-padding-medium);
+  overflow: hidden;
+  border-inline-start: var(--semantic-dimension-border-width-medium) solid
+    var(--semantic-color-border-information);
+  color: var(--semantic-color-text-secondary);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.orphanedThread:hover {
-  background: var(--semantic-color-background-fill-secondary-hover);
+.listedMessage {
+  display: grid;
+  gap: var(--semantic-dimension-space-gap-xx-small);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
-.orphanedThread span {
+.byline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--semantic-dimension-space-gap-x-small);
+}
+
+.byline time {
   color: var(--semantic-color-text-secondary);
   font: var(--semantic-typography-ui-tertiary);
 }
