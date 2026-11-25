@@ -1,0 +1,42 @@
+name: Back up sampleworks RFCs
+
+on:
+  schedule:
+    - cron: "17 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-sampleworks-rfc
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Export the workspace
+        env:
+          INKLING_API_KEY: ${{ secrets.INKLING_API_KEY }}
+        run: |
+          ./bin/inkling workspace add https://rfcs.sampleworks.dev "$INKLING_API_KEY"
+          ./bin/inkling backup rfcs.sampleworks.dev "$RUNNER_TEMP/backup.json"
+      # The backup holds unpublished drafts and this repository is public, so it goes to a
+      # private bucket and never to a workflow artifact.
+      - name: Upload to the private backups bucket
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: >
+          pnpm --filter inkling-deployment-sampleworks-rfc exec wrangler r2 object put
+          "sampleworks-inkling-backups/backup-$(date -u +%F).json"
+          --file "$RUNNER_TEMP/backup.json" --remote
