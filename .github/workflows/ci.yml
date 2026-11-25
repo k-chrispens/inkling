@@ -30,6 +30,6 @@ jobs:
         run: |
           directory="$(mktemp -d)"
           cp -R templates/cloudflare/. "$directory"
-          pnpm --dir "$directory" install --frozen-lockfile --ignore-workspace
+          pnpm --dir "$directory" install --frozen-lockfile
           pnpm --dir "$directory" check
       - run: pnpm release:pack
